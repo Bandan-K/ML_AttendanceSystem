@@ -35,7 +35,7 @@ class _CameraAppState extends State<CameraApp> {
       if (e is CameraException) {
         switch (e.code) {
           case 'CameraAccessDenied':
-          // Handle access errors here.nnnn
+          // Handle access errors here.
             break;
           default:
           // Handle other errors here.
