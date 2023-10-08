@@ -1,63 +1,98 @@
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_ml_kit/google_ml_kit.dart';
 
-late List<CameraDescription>? _cameras;
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  _cameras = await availableCameras();
-  runApp(const CameraApp());
-}
-
-/// CameraApp is the Main Application.
-class CameraApp extends StatefulWidget {
-  /// Default Constructor
-  const CameraApp({Key? key}) : super(key: key);
-
+class CameraScreen extends StatefulWidget {
   @override
-  State<CameraApp> createState() => _CameraAppState();
+  _CameraScreenState createState() => _CameraScreenState();
 }
 
-class _CameraAppState extends State<CameraApp> {
-  late CameraController controller;
+class _CameraScreenState extends State<CameraScreen> {
+  late CameraController _controller;
+  List<CameraDescription> _cameras = [];
+  late FaceDetector _faceDetector;
+  List<Face> _faces = [];
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    controller = CameraController(_cameras![0], ResolutionPreset.max);
-    controller.initialize().then((_) {
-      if (!mounted) {
-        return;
-      }
+    _initializeCamera();
+    _initializeFaceDetection();
+  }
+
+  Future<void> _initializeCamera() async {
+    _cameras = await availableCameras();
+    _controller = CameraController(_cameras[0], ResolutionPreset.high);
+    await _controller.initialize();
+    if (mounted) {
       setState(() {});
-    }).catchError((Object e) {
-      if (e is CameraException) {
-        switch (e.code) {
-          case 'CameraAccessDenied':
-          // Handle access errors here.
-            break;
-          default:
-          // Handle other errors here.
-            break;
-        }
-      }
-    });
+    }
+  }
+
+  Future<void> _initializeFaceDetection() async {
+    _faceDetector = GoogleMlKit.vision.faceDetector();
+  }
+
+  Future<void> _disposeCamera() async {
+    await _controller.dispose();
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    _faceDetector.close();
     super.dispose();
+  }
+
+  Future<void> _detectFaces() async {
+    final image = await _picker.pickImage(source: ImageSource.camera); // Capture an image from the camera
+    if (image == null) {
+      return;
+    }
+
+    final inputImage = InputImage.fromFilePath(image.path);
+    final result = await _faceDetector.processImage(inputImage);
+
+    setState(() {
+      _faces = result;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!controller.value.isInitialized) {
-      return Container();
-    }
-    return MaterialApp(
-      home: CameraPreview(controller),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Camera and Face Detection'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            _controller.value.isInitialized
+                ? AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: CameraPreview(_controller),
+            )
+                : CircularProgressIndicator(),
+
+            SizedBox(height: 16),
+
+            ElevatedButton(
+              onPressed: _detectFaces,
+              child: Text('Detect Faces'),
+            ),
+
+            SizedBox(height: 16),
+
+            // Display detected faces here using the '_faces' list
+            Text('Detected Faces: ${_faces.length}'),
+            for (final face in _faces)
+              Text('Face Bounding Box: ${face.boundingBox}'),
+          ],
+        ),
+      ),
     );
   }
 }

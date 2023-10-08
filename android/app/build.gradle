@@ -25,7 +25,8 @@ if (flutterVersionName == null) {
 android {
     namespace "com.example.attendance_system"
     compileSdkVersion flutter.compileSdkVersion
-    ndkVersion 21
+    ndkVersion  flutter.ndkVersion
+
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
